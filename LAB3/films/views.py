@@ -37,7 +37,8 @@ class GenericCRUDAPIView(APIView):
             serializer = self.request_serializer_post(data=request.data)
             if serializer.is_valid():
                 serializer.save()
-                response = self.response_serializer_post(serializer.data)
+                movie = self.model.objects.get(pk=serializer.data['id'])
+                response = self.response_serializer_post(movie)
                 return Response(response.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
@@ -45,7 +46,7 @@ class GenericCRUDAPIView(APIView):
         
     def patch(self, request, pk):
         try:
-            movie = Movie.objects.get(pk=pk)
+            movie = self.model.objects.get(pk=pk)
         except:
             return Response(f"{self.model.__class__.__name__} not found", status=status.HTTP_404_NOT_FOUND)
         
@@ -53,7 +54,8 @@ class GenericCRUDAPIView(APIView):
             serializer = self.request_serializer_patch(movie, data=request.data)
             if serializer.is_valid():
                 serializer.save()
-                response = self.response_serializer_patch(serializer.data)
+                movie = self.model.objects.get(pk=pk)
+                response = self.response_serializer_patch(movie)
                 return Response(response.data, status=status.HTTP_202_ACCEPTED)
             
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
