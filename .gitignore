@@ -1,2 +1,27 @@
+# Virtual environment
+venv/
 
-.vscode/launch.json
+# IDE files
+.vscode/
+*.pyc
+
+# Django related
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+db.sqlite3
+media/
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Static files
+staticfiles/
+
+# Environment variables
+.env
+
+# Ignore local settings
+settings_local.py
