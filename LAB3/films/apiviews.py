@@ -1,6 +1,5 @@
 from django.shortcuts import render
 from rest_framework.views import APIView, Response, status
-#from django.middleware import cors
 
 from .models import Movie, Category
 from .serializers import (
@@ -19,21 +18,62 @@ from .serializers import (
     TopMoviesGetResponseSerializer
 )
 
-class GenericCRUDAPIView(APIView):
-    #@cors.middleware(enforce_resource_types=['application/json'])
+class PaginatorAPIView(APIView):
+    def paginate(self, queryset, page=None, per_page=None):
+        if page is None:
+            page = 1
+        if per_page is None:
+            per_page=100
+            
+        if per_page < 1:
+            per_page = 1
+        elif per_page > 500:
+            per_page = 500
+
+        total = len(queryset)
+        num_pages = int(total / per_page)
+        if total % per_page != 0:
+            num_pages += 1
+
+        if page < 1:
+            page = 1
+        elif page > num_pages:
+            page = num_pages
+            if page == 0:
+                page = 1
+
+        index_start = (page - 1) * per_page
+        index_finish = index_start + per_page
+        if index_finish > total:
+            index_finish = total
+
+        return {
+            "page": page,
+            "total": total,
+            "per_page": per_page,
+            "num_pages": num_pages,
+            "offset": index_start,
+            "items": queryset[index_start:index_finish]
+        }
+
+class GenericCRUDAPIView(PaginatorAPIView):
     def get(self, request):
         try:
             serializer = self.request_serializer_get(data=request.query_params)
             if serializer.is_valid():
                 filters = serializer.validated_data
+                
+                page = filters.pop('page', None)
+                per_page = filters.pop('per_page', None)
+                
                 data = self.model.objects.filter(**filters)
-                response = self.response_serializer_get(data, many=True)
+                paginated_data = self.paginate(data, page, per_page)
+                response = self.response_serializer_get(paginated_data)
                 return Response(response.data, status=status.HTTP_200_OK)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
         
-    #@cors.middleware(enforce_resource_types=['application/json'])    
     def post(self, request):
         try:
             serializer = self.request_serializer_post(data=request.data)
@@ -46,7 +86,6 @@ class GenericCRUDAPIView(APIView):
         except Exception as e:
             return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
         
-    #@cors.middleware(enforce_resource_types=['application/json'])    
     def patch(self, request, pk):
         try:
             movie = self.model.objects.get(pk=pk)
@@ -65,7 +104,6 @@ class GenericCRUDAPIView(APIView):
         except Exception as e:
             return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
         
-    #@cors.middleware(enforce_resource_types=['application/json'])    
     def delete(self, request, pk):
         try:
             movie = self.model.objects.get(pk=pk)
@@ -106,13 +144,14 @@ class CategoryAPIView(GenericCRUDAPIView):
     response_serializer_patch = CategoryPatchResponseSerializer
     
     
-class TopMovieAPIView(GenericCRUDAPIView):
+class TopMovieAPIView(PaginatorAPIView):
     response_serializer_get = TopMoviesGetResponseSerializer
     
     def get(self, request):
         try:
             movies = Movie.objects.all().order_by('-rating')[:5]
-            response = self.response_serializer_get(movies, many=True)
+            movies = self.paginate(movies)
+            response = self.response_serializer_get(movies)
             return Response(response.data)
         except Exception as e:
             return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
